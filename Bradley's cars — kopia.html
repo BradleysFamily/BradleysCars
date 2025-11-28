@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1.0" />
+  <title>Bradley's Cars — System Pojazdów</title>
+  <style>
+    body { margin:0; font-family:Arial,sans-serif; background:#0a0a0a; color:#f5d442; }
+    header { background:#111; padding:20px; font-size:26px; font-weight:bold; text-align:center; color:#f5d442; border-bottom:3px solid #f5d442; }
+    .card { background:#1a1a1a; border:2px solid #f5d442; border-radius:8px; padding:20px; margin:20px auto; max-width:1100px; }
+    .status { margin-top:10px; min-height:22px; color:#f5d442; }
+    .error { color:#ff6b6b; }
+    .topbar { text-align:right; margin:0 20px; }
+    button { background:#f5d442; color:#000; border:none; padding:8px 14px; border-radius:4px; font-weight:bold; cursor:pointer; }
+    button:hover { background:#ffe066; }
+    input, select { padding:8px; margin:4px; border-radius:4px; border:2px solid #f5d442; background:#000; color:#f5d442; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { padding:10px; border-bottom:1px solid #333; vertical-align:middle; }
+    th { background:#111; color:#f5d442; }
+    hr { border:1px solid #f5d442; }
+    .muted { color:#bfa93a; font-size:12px; }
+    .grid-2 { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    .section-title { margin-top:0; }
+  </style>
+</head>
+<body>
+
+<header>Bradley's Cars — System pojazdów</header>
+
+<div class="card" id="loginPanel">
+  <h2>Logowanie</h2>
+  <input id="loginName" placeholder="Login" autocomplete="username" />
+  <input id="loginPass" type="password" placeholder="Hasło" autocomplete="current-password" />
+  <button id="loginBtn">Zaloguj</button>
+  <p id="loginStatus" class="status"></p>
+</div>
+
+<div id="mainApp" style="display:none;">
+  <div class="topbar">
+    <button id="logoutBtn">Wyloguj</button>
+  </div>
+
+  <!-- POJAZDY -->
+  <div class="card" id="panelPojazdow">
+    <h2>Pojazdy rodzinne</h2>
+    <div style="margin-bottom:10px;">
+      <input id="szukajPojazd" placeholder="Szukaj pojazdu..." />
+    </div>
+    <div id="adminVehicleControls" style="display:none;">
+      <input id="nowyPojazd" placeholder="Nazwa pojazdu" />
+      <select id="nowyPojazdRanga"></select>
+      <button id="dodajPojazdBtn">Dodaj pojazd</button>
+      <div class="muted">Dodany pojazd otrzyma wymaganą rangę widoczności i będzie dostępny zgodnie z ograniczeniami.</div>
+    </div>
+    <table id="tabelaPojazdow">
+      <thead>
+        <tr>
+          <th>Pojazd</th><th>Status</th><th>Osoba</th><th>Pobrano</th><th>Zwrócono</th><th>Akcje</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="paginacjaPojazdow" style="text-align:center; margin-top:10px;"></div>
+  </div>
+
+  <!-- ADMIN -->
+  <div class="card" id="adminPanel" style="display:none;">
+    <h2>Panel administratora</h2>
+
+    <div class="grid-2">
+      <div>
+        <h3 class="section-title">Dodaj użytkownika</h3>
+        <input id="newUserName" placeholder="Login użytkownika" />
+        <input id="newUserPass" placeholder="Hasło" />
+        <select id="newUserRole"></select>
+        <button id="dodajUzytkownikaBtn">Dodaj użytkownika</button>
+        <p id="adminStatus" class="status"></p>
+        <hr />
+        <h3>Lista użytkowników</h3>
+        <table id="tabelaUzytkownikow">
+          <thead>
+            <tr><th>Login</th><th>Ranga</th><th>Rodzina</th><th>Akcje</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div>
+        <h3 class="section-title">Uprawnienia pojazdów (wymagana ranga)</h3>
+        <div class="muted">Edytować mogą tylko rangi 29, 30 i 31. Widoczność: użytkownik widzi pojazdy, których wymagana ranga jest ≤ jego rangi. Ranga 1 nie widzi żadnych pojazdów. Rangi 29–31 widzą wszystkie.</div>
+        <table id="tabelaUprawnieniaPojazdow">
+          <thead>
+            <tr><th>Pojazd</th><th>Wymagana ranga</th><th>Akcje</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+
+        <hr />
+        <h3 class="section-title">Historia zmian rang pojazdów</h3>
+        <div class="muted">W tej tabeli widoczne są tylko wpisy typu „Zmieniono wymaganą rangę pojazdu”.</div>
+        <div style="margin-bottom:10px;">
+          <input id="szukajHistoriaRangiUser" placeholder="Szukaj użytkownika..." />
+          <input id="szukajHistoriaRangiPojazd" placeholder="Szukaj pojazdu..." />
+          <input id="szukajHistoriaRangiData" placeholder="Szukaj daty (np. 28.11.2025)" />
+        </div>
+        <table id="tabelaHistoriiRang">
+          <thead>
+            <tr><th>Akcja</th><th>Pojazd</th><th>Użytkownik</th><th>Dodatkowo</th><th>Data</th></tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+        <div id="paginacjaHistoriiRang" style="text-align:center; margin-top:10px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HISTORIA (na żywo) -->
+  <div class="card" id="panelHistoria">
+    <h2>Historia (na żywo)</h2>
+    <div style="margin-bottom:10px;">
+      <input id="szukajHistoria" placeholder="Szukaj użytkownika..." />
+      <input id="szukajPojazdHistoria" placeholder="Szukaj pojazdu..." />
+      <input id="szukajDataHistoria" placeholder="Szukaj daty (np. 28.11.2025)" />
+    </div>
+    <table id="tabelaHistorii">
+      <thead>
+        <tr><th>Akcja</th><th>Pojazd</th><th>Użytkownik</th><th>Dodatkowo</th><th>Data</th></tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <div id="paginacjaHistorii" style="text-align:center; margin-top:10px;"></div>
+  </div>
+</div>
+
+<script>
+/* Seed danych + unifikacja rang + pole wymagana ranga pojazdu */
+(function(){
+  const usersRaw = localStorage.getItem('users_v4');
+  const users = usersRaw ? JSON.parse(usersRaw) : [];
+  const familiesRaw = localStorage.getItem('families_v4');
+  const families = familiesRaw ? JSON.parse(familiesRaw) : [];
+
+  if (!families.find(f => f.id === 1)) {
+    families.push({ id: 1, name: "Kobayashi Family" });
+    localStorage.setItem('families_v4', JSON.stringify(families));
+  }
+  if (!users.find(u => u.username === "Hayato Kobayashi")) {
+    users.push({ id: 1, username: "Hayato Kobayashi", password: "electricco147", role: 31, familyId: 1 });
+  }
+  users.forEach(u => {
+    if (typeof u.role === "string") {
+      const map = { owner: 31, manager: 20, member: 10 };
+      u.role = map[u.role] !== undefined ? map[u.role] : Number(u.role) || 1;
+    } else {
+      u.role = Number(u.role) || 1;
+    }
+  });
+  localStorage.setItem('users_v4', JSON.stringify(users));
+
+  const vehRaw = localStorage.getItem('vehicles_v4');
+  const vehicles = vehRaw ? JSON.parse(vehRaw) : [];
+  if (vehicles.length === 0) {
+    vehicles.push({ id: Date.now(), name: "Benefactor", status: "wolny", takenBy: null, timeTaken: null, timeReturned: null, requiredRank: 10 });
+    vehicles.push({ id: Date.now()+1, name: "Pegassi", status: "wolny", takenBy: null, timeTaken: null, timeReturned: null, requiredRank: 10 });
+    localStorage.setItem('vehicles_v4', JSON.stringify(vehicles));
+  } else {
+    vehicles.forEach(v => { if (typeof v.requiredRank !== "number") v.requiredRank = 10; });
+    localStorage.setItem('vehicles_v4', JSON.stringify(vehicles));
+  }
+})();
+
+/* Storage helpers */
+function loadUsers(){ return JSON.parse(localStorage.getItem("users_v4")||"[]"); }
+function saveUsers(x){ localStorage.setItem("users_v4", JSON.stringify(x)); }
+function loadVehicles(){ return JSON.parse(localStorage.getItem("vehicles_v4")||"[]"); }
+function saveVehicles(x){ localStorage.setItem("vehicles_v4", JSON.stringify(x)); }
+function loadHistory(){ return JSON.parse(localStorage.getItem("history_v4")||"[]"); }
+function saveHistory(x){ localStorage.setItem("history_v4", JSON.stringify(x)); }
+
+/* UI helpers */
+function setText(id, txt, isError=false){
+  const el=document.getElementById(id);
+  if(el){ el.textContent=txt; el.className="status"+(isError?" error":""); }
+}
+function show(id, flag){ const el=document.getElementById(id); if(el) el.style.display = flag ? "block" : "none"; }
+
+/* Sesja + rangi */
+let aktualnyUzytkownik = null;
+function rank(u){ return Number(u?.role) || 1; }
+function isHeadAdmin(u){ return rank(u) === 31; }
+function isAdmin(u){ return rank(u) >= 29; }
+
+/* Uprawnienia między rangami */
+function canManage(target, actor){
+  const rT = rank(target);
+  const rA = rank(actor);
+  if(rA === 31) return true;
+  if(rA === 30 && rT === 31) return false;
+  if(rA === 29 && (rT === 30 || rT === 31)) return false;
+  if(rA >= 29) return true;
+  return false;
+}
+
+/* Paginacja pojazdów */
+let pojazdyStrona = 0;
+const pojazdyNaStronie = 10;
+
+/* Paginacja historii (głównej) */
+let historiaStrona = 0;
+const historiaNaStronie = 10;
+
+/* Paginacja historii zmian rang */
+let historiaRangStrona = 0;
+const historiaRangNaStronie = 10;
+
+/* Logowanie / wylogowanie */
+function zaloguj(){
+  const n=document.getElementById("loginName").value.trim();
+  const p=document.getElementById("loginPass").value.trim();
+  const users=loadUsers();
+  const u=users.find(x=>x.username===n && x.password===p);
+  if(!u){ setText("loginStatus","Błędny login lub hasło!",true); return; }
+  aktualnyUzytkownik=u;
+  setText("loginStatus","Zalogowano!");
+  show("loginPanel", false);
+  show("mainApp", true);
+
+  const admin = isAdmin(u);
+  show("adminPanel", admin);
+  show("adminVehicleControls", admin);
+
+  odswiezUzytkownikow();
+  odswiezPojazdy();
+  odswiezUprawnieniaPojazdow();
+  odswiezHistorie();
+  if(admin) odswiezHistorieRang();
+}
+
+function wyloguj(){
+  aktualnyUzytkownik=null;
+  show("mainApp", false);
+  show("loginPanel", true);
+  setText("loginStatus","Wylogowano.");
+}
+
+/* Admin: dodawanie/usuwanie/edycja rangi użytkowników */
+function dodajUzytkownika(){
+  if(!aktualnyUzytkownik || !isAdmin(aktualnyUzytkownik)){ setText("adminStatus","Brak uprawnień!",true); return; }
+  const name=document.getElementById("newUserName").value.trim();
+  const pass=document.getElementById("newUserPass").value.trim();
+  const role=parseInt(document.getElementById("newUserRole").value,10);
+  if(!name||!pass){ setText("adminStatus","Uzupełnij dane!",true); return; }
+  if(role<1 || role>31){ setText("adminStatus","Ranga poza zakresem (1–31).",true); return; }
+  const users=loadUsers();
+  if(users.find(u=>u.username===name)){ setText("adminStatus","Taki użytkownik już istnieje!",true); return; }
+  users.push({id:Date.now(),username:name,password:pass,role:role,familyId:1});
+  saveUsers(users);
+  setText("adminStatus","Dodano użytkownika!");
+  document.getElementById("newUserName").value="";
+  document.getElementById("newUserPass").value="";
+  odswiezUzytkownikow();
+}
+
+function usunUzytkownika(id){
+  const users=loadUsers();
+  const u=users.find(x=>x.id===id);
+  if(!u) return;
+  if(!canManage(u, aktualnyUzytkownik)){
+    alert("Nie masz uprawnień do usunięcia tego konta.");
+    return;
+  }
+  if(!confirm("Na pewno usunąć?")) return;
+  saveUsers(users.filter(x=>x.id!==id));
+  odswiezUzytkownikow();
+}
+
+function zmienRangeUzytkownika(id, nowaRanga){
+  const users = loadUsers();
+  const u = users.find(x => x.id === id);
+  if(!u) return;
+  if(!canManage(u, aktualnyUzytkownik)){
+    alert("Nie masz uprawnień do zmiany rangi tego konta.");
+    return;
+  }
+  u.role = Number(nowaRanga);
+  saveUsers(users);
+  odswiezUzytkownikow();
+}
+
+function odswiezUzytkownikow(){
+  const users=loadUsers();
+  const tbody=document.querySelector("#tabelaUzytkownikow tbody");
+  if(!tbody) return;
+  tbody.innerHTML="";
+  users.forEach(u=>{
+    const tr=document.createElement("tr");
+
+    const tdLogin=document.createElement("td"); tdLogin.textContent=u.username; tr.appendChild(tdLogin);
+
+    const tdRanga=document.createElement("td");
+    const select=document.createElement("select");
+    for(let i=1;i<=31;i++){
+      const opt=document.createElement("option");
+      opt.value=String(i);
+      opt.textContent = i === 31 ? "Ranga 31 (Head Admin)" : "Ranga " + i;
+      if(i === rank(u)) opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.addEventListener("change",()=>zmienRangeUzytkownika(u.id, parseInt(select.value,10)));
+    if(!canManage(u, aktualnyUzytkownik)) select.disabled = true;
+    tdRanga.appendChild(select);
+    tr.appendChild(tdRanga);
+
+    const tdRodzina=document.createElement("td"); tdRodzina.textContent=String(u.familyId ?? "-"); tr.appendChild(tdRodzina);
+
+    const tdAkcje=document.createElement("td");
+    if(canManage(u, aktualnyUzytkownik)){
+      const btn=document.createElement("button");
+      btn.textContent="Usuń";
+      btn.addEventListener("click",()=>usunUzytkownika(u.id));
+      tdAkcje.appendChild(btn);
+    } else {
+      tdAkcje.textContent="-";
+    }
+    tr.appendChild(tdAkcje);
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* Pojazdy: dodawanie/usuwanie/pobieranie/oddawanie + paginacja i wyszukiwarka + wymagana ranga */
+function dodajPojazd(){
+  if(!aktualnyUzytkownik || !isAdmin(aktualnyUzytkownik)){ alert("Tylko administrator (ranga 29+) może dodawać pojazdy!"); return; }
+  const name=document.getElementById("nowyPojazd").value.trim();
+  const reqRank=parseInt(document.getElementById("nowyPojazdRanga").value,10);
+  if(!name) return;
+  const veh=loadVehicles();
+  veh.push({ id:Date.now(), name, status:"wolny", takenBy:null, timeTaken:null, timeReturned:null, requiredRank:reqRank });
+  saveVehicles(veh);
+  dodajHistorie("Dodano pojazd", name, aktualnyUzytkownik.username, "Wymagana ranga: "+reqRank);
+  document.getElementById("nowyPojazd").value="";
+  odswiezPojazdy();
+  odswiezUprawnieniaPojazdow();
+}
+
+function usunPojazd(id){
+  if(!aktualnyUzytkownik || !isAdmin(aktualnyUzytkownik)){ alert("Tylko administrator (ranga 29+) może usuwać pojazdy!"); return; }
+  if(!confirm("Na pewno usunąć pojazd?")) return;
+  const veh=loadVehicles();
+  const v = veh.find(x=>x.id===id);
+  const pozostale = veh.filter(x=>x.id!==id);
+  saveVehicles(pozostale);
+  dodajHistorie("Usunięto pojazd", v ? (v.name || String(v.id)) : "-", aktualnyUzytkownik.username);
+  odswiezPojazdy();
+  odswiezUprawnieniaPojazdow();
+}
+
+function pobierzPojazd(id){
+  const veh = loadVehicles();
+  const v = veh.find(x => x.id === id);
+  if (!v) return;
+
+  const userRank = rank(aktualnyUzytkownik);
+  if(!isAdmin(aktualnyUzytkownik)){
+    if(userRank === 1){ alert("Brak dostępu do pojazdów (urlop)."); return; }
+    if(userRank < (v.requiredRank ?? 10)){ alert("Twoja ranga nie pozwala na pobranie tego pojazdu."); return; }
+  }
+
+  if (v.status !== "wolny") {
+    alert("Ten pojazd jest już zajęty.");
+    return;
+  }
+
+  const czyMaPojazd = veh.some(x => x.takenBy === aktualnyUzytkownik.username && x.status === "pobrany");
+  if (!isAdmin(aktualnyUzytkownik) && czyMaPojazd) {
+    alert("Możesz mieć tylko jeden pojazd pobrany jednocześnie.");
+    return;
+  }
+
+  v.status = "pobrany";
+  v.takenBy = aktualnyUzytkownik.username;
+  v.timeTaken = new Date().toLocaleString();
+  saveVehicles(veh);
+  dodajHistorie("Pobrano", v.name, aktualnyUzytkownik.username);
+  odswiezPojazdy();
+}
+
+/* Oddawanie pojazdu z podliczeniem czasu użytkowania (minuty) */
+function oddajPojazd(id){
+  const veh = loadVehicles();
+  const v = veh.find(x => x.id === id);
+  if (!v) return;
+
+  const ranga = rank(aktualnyUzytkownik);
+  const czyToMoje = v.takenBy === aktualnyUzytkownik.username;
+
+  if (!czyToMoje && ranga < 29) {
+    alert("Nie możesz oddać pojazdu pobranego przez inną osobę.");
+    return;
+  }
+
+  let extraInfo = "";
+  if(v.timeTaken){
+    const start = new Date(v.timeTaken);
+    const end = new Date();
+    const diffMs = end - start;
+    const diffMin = Math.round(diffMs / 60000);
+    extraInfo = "Czas użytkowania: " + diffMin + " minut";
+  }
+
+  v.status = "wolny";
+  v.timeReturned = new Date().toLocaleString();
+  const osob = v.takenBy;
+  v.takenBy = null;
+  saveVehicles(veh);
+
+  const extraCombined = (extraInfo ? (extraInfo + " | ") : "") + "Oddano za: " + (osob || "-");
+  dodajHistorie("Oddano", v.name, aktualnyUzytkownik.username, extraCombined);
+  odswiezPojazdy();
+}
+
+function odswiezPojazdy(){
+  if(!aktualnyUzytkownik) return;
+  const wszystkie = loadVehicles();
+  const filtr = document.getElementById("szukajPojazd").value.trim().toLowerCase();
+  const userRank = rank(aktualnyUzytkownik);
+  const admin = isAdmin(aktualnyUzytkownik);
+
+  // widoczne wg rangi (admin widzi wszystko; ranga 1 widzi nic; pozostali ≤ ich ranga)
+  let filtRank = wszystkie.filter(v => {
+    const req = Number(v.requiredRank ?? 10);
+    if(admin) return true;
+    if(userRank === 1) return false;
+    return userRank >= req;
+  });
+
+  const pasujace = filtRank.filter(v => v.name.toLowerCase().includes(filtr));
+  const start = pojazdyStrona * pojazdyNaStronie;
+  const widoczne = pasujace.slice(start, start + pojazdyNaStronie);
+
+  const tbody = document.querySelector("#tabelaPojazdow tbody");
+  if(!tbody) return;
+  tbody.innerHTML = "";
+  widoczne.forEach(v => {
+    const tr = document.createElement("tr");
+
+    const tdName = document.createElement("td"); tdName.textContent = v.name; tr.appendChild(tdName);
+    const tdStatus = document.createElement("td"); tdStatus.textContent = v.status; tr.appendChild(tdStatus);
+    const tdTakenBy = document.createElement("td"); tdTakenBy.textContent = v.takenBy || "-"; tr.appendChild(tdTakenBy);
+    const tdTimeTaken = document.createElement("td"); tdTimeTaken.textContent = v.timeTaken || "-"; tr.appendChild(tdTimeTaken);
+    const tdTimeReturned = document.createElement("td"); tdTimeReturned.textContent = v.timeReturned || "-"; tr.appendChild(tdTimeReturned);
+
+    const tdAkcje = document.createElement("td");
+    const btns = [];
+
+    if(v.status==="wolny"){
+      const btnPobierz=document.createElement("button");
+      btnPobierz.textContent="Pobierz";
+      btnPobierz.addEventListener("click",()=>pobierzPojazd(v.id));
+      btns.push(btnPobierz);
+    }
+    if(v.status==="pobrany"){
+      const btnOddaj=document.createElement("button");
+      btnOddaj.textContent="Oddaj";
+      btnOddaj.addEventListener("click",()=>oddajPojazd(v.id));
+      btns.push(btnOddaj);
+    }
+    if(isAdmin(aktualnyUzytkownik)){
+      const btnUsun=document.createElement("button");
+      btnUsun.textContent="Usuń";
+      btnUsun.addEventListener("click",()=>usunPojazd(v.id));
+      btns.push(btnUsun);
+    }
+    btns.forEach(b=>tdAkcje.appendChild(b));
+    tr.appendChild(tdAkcje);
+    tbody.appendChild(tr);
+  });
+
+  const pagDiv = document.getElementById("paginacjaPojazdow");
+  pagDiv.innerHTML = "";
+  const maxStron = Math.ceil(pasujace.length / pojazdyNaStronie);
+  if (maxStron > 1) {
+    const prev = document.createElement("button");
+    prev.textContent = "◀";
+    prev.disabled = pojazdyStrona === 0;
+    prev.onclick = () => { pojazdyStrona--; odswiezPojazdy(); };
+    pagDiv.appendChild(prev);
+
+    const info = document.createElement("span");
+    info.textContent = ` Strona ${pojazdyStrona+1} z ${maxStron} `;
+    pagDiv.appendChild(info);
+
+    const next = document.createElement("button");
+    next.textContent = "▶";
+    next.disabled = pojazdyStrona >= maxStron - 1;
+    next.onclick = () => { pojazdyStrona++; odswiezPojazdy(); };
+    pagDiv.appendChild(next);
+  }
+}
+
+/* Admin: edycja wymaganej rangi pojazdów */
+function setVehicleRank(id, reqRank){
+  if(!aktualnyUzytkownik || !isAdmin(aktualnyUzytkownik)){ alert("Brak uprawnień."); return; }
+  const veh = loadVehicles();
+  const v = veh.find(x=>x.id===id);
+  if(!v) return;
+  v.requiredRank = Number(reqRank);
+  saveVehicles(veh);
+  dodajHistorie("Zmieniono wymaganą rangę pojazdu", v.name, aktualnyUzytkownik.username, "Nowa ranga: "+reqRank);
+  odswiezUprawnieniaPojazdow();
+  odswiezPojazdy();
+  odswiezHistorieRang();
+}
+
+function odswiezUprawnieniaPojazdow(){
+  const tbody = document.querySelector("#tabelaUprawnieniaPojazdow tbody");
+  if(!tbody) return;
+  const veh = loadVehicles();
+  tbody.innerHTML = "";
+  veh.forEach(v=>{
+    const tr=document.createElement("tr");
+    const tdName=document.createElement("td"); tdName.textContent=v.name; tr.appendChild(tdName);
+
+    const tdReq=document.createElement("td");
+    const select=document.createElement("select");
+    for(let i=1;i<=31;i++){
+      const opt=document.createElement("option");
+      opt.value=String(i);
+      opt.textContent = "Ranga " + i;
+      if(i === Number(v.requiredRank ?? 10)) opt.selected = true;
+      select.appendChild(opt);
+    }
+    select.addEventListener("change",()=>setVehicleRank(v.id, parseInt(select.value,10)));
+    tdReq.appendChild(select);
+    tr.appendChild(tdReq);
+
+    const tdAkcje=document.createElement("td");
+    const btnZapisz=document.createElement("button");
+    btnZapisz.textContent="Zapisz";
+    btnZapisz.addEventListener("click",()=>setVehicleRank(v.id, parseInt(select.value,10)));
+    tdAkcje.appendChild(btnZapisz);
+    tr.appendChild(tdAkcje);
+
+    tbody.appendChild(tr);
+  });
+}
+
+/* Historia: dodawanie/odświeżanie + filtry i paginacja (główna) */
+function dodajHistorie(akcja, pojazd, user, extra=""){
+  const h=loadHistory();
+  h.push({ id:Date.now(), akcja, pojazd, user, extra, czas:new Date().toLocaleString() });
+  saveHistory(h);
+  odswiezHistorie();
+  if(isAdmin(aktualnyUzytkownik)) odswiezHistorieRang();
+}
+
+function odswiezHistorie(){
+  const h = loadHistory().sort((a,b)=>b.id-a.id);
+  const filtrUser = document.getElementById("szukajHistoria").value.trim().toLowerCase();
+  const filtrPojazd = document.getElementById("szukajPojazdHistoria").value.trim().toLowerCase();
+  const filtrData = document.getElementById("szukajDataHistoria").value.trim();
+
+  // Wyklucz wpisy „Zmieniono wymaganą rangę pojazdu” z historii głównej
+  const bezRang = h.filter(x => x.akcja !== "Zmieniono wymaganą rangę pojazdu");
+
+  const pasujace = bezRang.filter(x =>
+    String(x.user).toLowerCase().includes(filtrUser) &&
+    String(x.pojazd).toLowerCase().includes(filtrPojazd) &&
+    String(x.czas).includes(filtrData)
+  );
+
+  const start = historiaStrona * historiaNaStronie;
+  const widoczne = pasujace.slice(start, start + historiaNaStronie);
+
+  const tbody = document.querySelector("#tabelaHistorii tbody");
+  if(!tbody) return;
+  tbody.innerHTML = "";
+  widoczne.forEach(x => {
+    const tr = document.createElement("tr");
+    const cols = [x.akcja, x.pojazd, x.user, (x.extra || "-"), x.czas];
+    cols.forEach(val => {
+      const td = document.createElement("td");
+      td.textContent = val || "-";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  const pagDiv = document.getElementById("paginacjaHistorii");
+  pagDiv.innerHTML = "";
+  const maxStron = Math.ceil(pasujace.length / historiaNaStronie);
+  if (maxStron > 1) {
+    const prev = document.createElement("button");
+    prev.textContent = "◀";
+    prev.disabled = historiaStrona === 0;
+    prev.onclick = () => { historiaStrona--; odswiezHistorie(); };
+    pagDiv.appendChild(prev);
+
+    const info = document.createElement("span");
+    info.textContent = ` Strona ${historiaStrona+1} z ${maxStron} `;
+    pagDiv.appendChild(info);
+
+    const next = document.createElement("button");
+    next.textContent = "▶";
+    next.disabled = historiaStrona >= maxStron - 1;
+    next.onclick = () => { historiaStrona++; odswiezHistorie(); };
+    pagDiv.appendChild(next);
+  }
+}
+
+/* Historia zmian rang pojazdów: osobna tabela admin-only */
+function odswiezHistorieRang(){
+  if(!isAdmin(aktualnyUzytkownik)) return;
+  const h = loadHistory().sort((a,b)=>b.id-a.id);
+  const filtrUser = document.getElementById("szukajHistoriaRangiUser").value?.trim().toLowerCase() || "";
+  const filtrPojazd = document.getElementById("szukajHistoriaRangiPojazd").value?.trim().toLowerCase() || "";
+  const filtrData = document.getElementById("szukajHistoriaRangiData").value?.trim() || "";
+
+  const tylkoRangi = h.filter(x => x.akcja === "Zmieniono wymaganą rangę pojazdu").filter(x =>
+    String(x.user).toLowerCase().includes(filtrUser) &&
+    String(x.pojazd).toLowerCase().includes(filtrPojazd) &&
+    String(x.czas).includes(filtrData)
+  );
+
+  const start = historiaRangStrona * historiaRangNaStronie;
+  const widoczne = tylkoRangi.slice(start, start + historiaRangNaStronie);
+
+  const tbody = document.querySelector("#tabelaHistoriiRang tbody");
+  if(!tbody) return;
+  tbody.innerHTML = "";
+  widoczne.forEach(x => {
+    const tr = document.createElement("tr");
+    const cols = [x.akcja, x.pojazd, x.user, (x.extra || "-"), x.czas];
+    cols.forEach(val => {
+      const td = document.createElement("td");
+      td.textContent = val || "-";
+      tr.appendChild(td);
+    });
+    tbody.appendChild(tr);
+  });
+
+  const pagDiv = document.getElementById("paginacjaHistoriiRang");
+  if(!pagDiv) return;
+  pagDiv.innerHTML = "";
+  const maxStron = Math.ceil(tylkoRangi.length / historiaRangNaStronie);
+  if (maxStron > 1) {
+    const prev = document.createElement("button");
+    prev.textContent = "◀";
+    prev.disabled = historiaRangStrona === 0;
+    prev.onclick = () => { historiaRangStrona--; odswiezHistorieRang(); };
+    pagDiv.appendChild(prev);
+
+    const info = document.createElement("span");
+    info.textContent = ` Strona ${historiaRangStrona+1} z ${maxStron} `;
+    pagDiv.appendChild(info);
+
+    const next = document.createElement("button");
+    next.textContent = "▶";
+    next.disabled = historiaRangStrona >= maxStron - 1;
+    next.onclick = () => { historiaRangStrona++; odswiezHistorieRang(); };
+    pagDiv.appendChild(next);
+  }
+}
+
+/* DOMContentLoaded: zdarzenia i inicjalizacja */
+document.addEventListener("DOMContentLoaded",()=>{
+  document.getElementById("loginBtn").addEventListener("click",zaloguj);
+  document.getElementById("logoutBtn").addEventListener("click",wyloguj);
+  document.getElementById("loginPass").addEventListener("keydown",(e)=>{ if(e.key==="Enter") zaloguj(); });
+
+  document.getElementById("dodajPojazdBtn").addEventListener("click",dodajPojazd);
+  document.getElementById("dodajUzytkownikaBtn").addEventListener("click",dodajUzytkownika);
+
+  const selRole=document.getElementById("newUserRole");
+  selRole.innerHTML="";
+  for(let i=1;i<=31;i++){
+    const opt=document.createElement("option");
+    opt.value=String(i);
+    opt.textContent= i===31 ? "Ranga 31 (Head Admin)" : ("Ranga " + i);
+    selRole.appendChild(opt);
+  }
+
+  const selReq=document.getElementById("nowyPojazdRanga");
+  selReq.innerHTML="";
+  for(let i=1;i<=31;i++){
+    const opt=document.createElement("option");
+    opt.value=String(i);
+    opt.textContent="Wymagana ranga " + i;
+    if(i===10) opt.selected = true;
+    selReq.appendChild(opt);
+  }
+
+  document.getElementById("szukajPojazd").addEventListener("input", () => {
+    pojazdyStrona = 0;
+    odswiezPojazdy();
+  });
+
+  ["szukajHistoria", "szukajPojazdHistoria", "szukajDataHistoria"].forEach(id => {
+    document.getElementById(id).addEventListener("input", () => {
+      historiaStrona = 0;
+      odswiezHistorie();
+    });
+  });
+
+  ["szukajHistoriaRangiUser", "szukajHistoriaRangiPojazd", "szukajHistoriaRangiData"].forEach(id => {
+    const el = document.getElementById(id);
+    if(el){
+      el.addEventListener("input", () => {
+        historiaRangStrona = 0;
+        odswiezHistorieRang();
+      });
+    }
+  });
+});
+</script>
+</body>
+</html>
